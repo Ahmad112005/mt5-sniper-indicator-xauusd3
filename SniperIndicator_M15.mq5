@@ -1,15 +1,14 @@
 //+------------------------------------------------------------------+
-//| Sniper Indicator M15 - XAUUSD3 Custom Version                    |
+//| Sniper Indicator M15 - XAUUSD3 Custom Version (FIXED)            |
 //| Target: 100-400 Point | Timeframe: M15                           |
 //| Pair: XAUUSD3 (Gold) | Strategy: High Accuracy Entry/Exit       |
 //+------------------------------------------------------------------+
 #property copyright "Ahmad Sniper Trading"
 #property link      "https://github.com/Ahmad112005"
-#property version   "1.00"
+#property version   "1.01"
 #property strict
-#property indicator_chart_window
-#property indicator_separate_window
 
+#property indicator_chart_window
 #property indicator_buffers 8
 #property indicator_plots 8
 
@@ -28,13 +27,14 @@
 #property indicator_type3   DRAW_LINE
 #property indicator_color3  clrBlue
 #property indicator_width3  1
+#property indicator_style3  STYLE_DASH
 
 #property indicator_label4  "Resistance Level"
 #property indicator_type4   DRAW_LINE
 #property indicator_color4  clrOrange
 #property indicator_width4  1
+#property indicator_style4  STYLE_DASH
 
-// Buffer untuk sub-window (seperti RSI)
 #property indicator_label5  "RSI Value"
 #property indicator_type5   DRAW_LINE
 #property indicator_color5  clrCyan
@@ -78,7 +78,9 @@ input int EntryBuffer = 20;             // Buffer untuk entry presisi (points)
 input bool ShowLabels = true;           // Tampilkan label BUY/SELL/TP
 input int LabelFontSize = 10;           // Ukuran font label
 
-// Variabel global
+//+------------------------------------------------------------------+
+// FUNGSI INISIALISASI
+//+------------------------------------------------------------------+
 int OnInit()
 {
     SetIndexBuffer(0, buyBuffer, INDICATOR_DATA);
@@ -94,15 +96,14 @@ int OnInit()
     PlotIndexSetInteger(0, PLOT_ARROW, 241);  // Arrow up untuk BUY
     PlotIndexSetInteger(1, PLOT_ARROW, 242);  // Arrow down untuk SELL
     
-    // Setup line untuk support/resistance
-    PlotIndexSetInteger(2, PLOT_LINE_STYLE, STYLE_DASH);
-    PlotIndexSetInteger(3, PLOT_LINE_STYLE, STYLE_DASH);
-    
     IndicatorSetString(INDICATOR_SHORTNAME, "Sniper M15 (XAUUSD3)");
     
     return(INIT_SUCCEEDED);
 }
 
+//+------------------------------------------------------------------+
+// FUNGSI KALKULASI UTAMA
+//+------------------------------------------------------------------+
 int OnCalculate(const int rates_total,
                 const int prev_calculated,
                 const datetime &time[],
@@ -142,7 +143,7 @@ int OnCalculate(const int rates_total,
         bool rsiFilter = (rsiVal > RSI_Oversold && rsiVal < RSI_Overbought);  // Hindari ekstrim
         bool macdFilter = macdVal != 0;                        // MACD ada pergerakan
         bool trendFilter = close[i] > ma20;                    // Uptrend
-        bool priceActionFilter = CheckPriceAction(high, low, close, i);  // Price action presisi
+        bool priceActionFilter = CheckPriceAction(high, low, close, open, i);  // Price action presisi
         
         // ===== ENTRY BUY =====
         if(volumeFilter && rsiFilter && macdFilter && trendFilter && priceActionFilter && macdVal > 0)
@@ -154,10 +155,15 @@ int OnCalculate(const int rates_total,
                 
                 if(ShowLabels)
                 {
-                    DrawLabel("BUY_" + (string)i, time[i], low[i] - EntryBuffer * 3 * Point(), 
-                             "BUY", clrGreen, ANCHOR_TOP);
-                    DrawLabel("TP_BUY_" + (string)i, time[i], high[i] + 200 * Point(), 
-                             "TP: +" + (string)(200+rand()%200) + "pt", clrLimeGreen, ANCHOR_BOTTOM);
+                    int tpValue = 200 + (rand() % 200);
+                    string labelName1 = "BUY_" + IntegerToString(i);
+                    string labelName2 = "TP_BUY_" + IntegerToString(i);
+                    string tpText = "TP: +" + IntegerToString(tpValue) + "pt";
+                    
+                    DrawLabel(labelName1, time[i], low[i] - EntryBuffer * 3 * Point(), 
+                             "BUY", clrGreen);
+                    DrawLabel(labelName2, time[i], high[i] + 200 * Point(), 
+                             tpText, clrLimeGreen);
                 }
             }
         }
@@ -172,10 +178,15 @@ int OnCalculate(const int rates_total,
                 
                 if(ShowLabels)
                 {
-                    DrawLabel("SELL_" + (string)i, time[i], high[i] + EntryBuffer * 3 * Point(), 
-                             "SELL", clrRed, ANCHOR_BOTTOM);
-                    DrawLabel("TP_SELL_" + (string)i, time[i], low[i] - 200 * Point(), 
-                             "TP: -" + (string)(200+rand()%200) + "pt", clrOrangeRed, ANCHOR_TOP);
+                    int tpValue = 200 + (rand() % 200);
+                    string labelName1 = "SELL_" + IntegerToString(i);
+                    string labelName2 = "TP_SELL_" + IntegerToString(i);
+                    string tpText = "TP: -" + IntegerToString(tpValue) + "pt";
+                    
+                    DrawLabel(labelName1, time[i], high[i] + EntryBuffer * 3 * Point(), 
+                             "SELL", clrRed);
+                    DrawLabel(labelName2, time[i], low[i] - 200 * Point(), 
+                             tpText, clrOrangeRed);
                 }
             }
         }
@@ -193,12 +204,14 @@ int OnCalculate(const int rates_total,
     return(rates_total);
 }
 
-//+------ FUNGSI KALKULASI ------+
-
-// Hitung RSI
+//+------------------------------------------------------------------+
+// FUNGSI KALKULASI - RSI
+//+------------------------------------------------------------------+
 double CalculateRSI(const double &close[], int pos, int period)
 {
     double gain = 0, loss = 0;
+    
+    if(pos < period) return 50;
     
     for(int i = pos - period; i < pos; i++)
     {
@@ -212,7 +225,9 @@ double CalculateRSI(const double &close[], int pos, int period)
     return 100 - (100 / (1 + rs));
 }
 
-// Hitung MACD
+//+------------------------------------------------------------------+
+// FUNGSI KALKULASI - MACD
+//+------------------------------------------------------------------+
 double CalculateMACD(const double &close[], int pos, int fastEMA, int slowEMA, int signal)
 {
     double fast = CalculateEMA(close, pos, fastEMA);
@@ -220,26 +235,33 @@ double CalculateMACD(const double &close[], int pos, int fastEMA, int slowEMA, i
     return fast - slow;
 }
 
-// Hitung EMA
+//+------------------------------------------------------------------+
+// FUNGSI KALKULASI - EMA
+//+------------------------------------------------------------------+
 double CalculateEMA(const double &close[], int pos, int period)
 {
     double ema = 0;
-    double multiplier = 2.0 / (period + 1);
+    double multiplier = 2.0 / (period + 1.0);
     
     if(pos < period) return close[pos];
     
     ema = close[pos - period];
     for(int i = pos - period + 1; i <= pos; i++)
     {
-        ema = close[i] * multiplier + ema * (1 - multiplier);
+        ema = close[i] * multiplier + ema * (1.0 - multiplier);
     }
     return ema;
 }
 
-// Hitung Moving Average
+//+------------------------------------------------------------------+
+// FUNGSI KALKULASI - MOVING AVERAGE
+//+------------------------------------------------------------------+
 double CalculateMA(const double &close[], int pos, int period)
 {
     double sum = 0;
+    
+    if(pos < period - 1) return close[pos];
+    
     for(int i = pos - period + 1; i <= pos; i++)
     {
         sum += close[i];
@@ -247,19 +269,27 @@ double CalculateMA(const double &close[], int pos, int period)
     return sum / period;
 }
 
-// Hitung Volume Average
+//+------------------------------------------------------------------+
+// FUNGSI KALKULASI - VOLUME AVERAGE
+//+------------------------------------------------------------------+
 double CalculateVolumeAverage(const long &volume[], int pos, int period)
 {
     double sum = 0;
+    
+    if(pos < period - 1) return (double)volume[pos];
+    
     for(int i = pos - period + 1; i <= pos; i++)
     {
-        sum += volume[i];
+        sum += (double)volume[i];
     }
     return sum / period;
 }
 
-// Check Price Action (Presisi)
-bool CheckPriceAction(const double &high[], const double &low[], const double &close[], int pos)
+//+------------------------------------------------------------------+
+// FUNGSI KALKULASI - PRICE ACTION
+//+------------------------------------------------------------------+
+bool CheckPriceAction(const double &high[], const double &low[], const double &close[], 
+                      const double &open[], int pos)
 {
     if(pos < 3) return false;
     
@@ -275,17 +305,22 @@ bool CheckPriceAction(const double &high[], const double &low[], const double &c
     return (breakoutUp || breakoutDown) && notDoji;
 }
 
-// Draw Label
-void DrawLabel(string name, datetime time, double price, string text, color clr, ENUM_ANCHOR_POINT anchor)
+//+------------------------------------------------------------------+
+// FUNGSI DRAW LABEL
+//+------------------------------------------------------------------+
+void DrawLabel(string name, datetime time, double price, string text, color clr)
 {
     ObjectDelete(0, name);
     ObjectCreate(0, name, OBJ_TEXT, 0, time, price);
     ObjectSetString(0, name, OBJPROP_TEXT, text);
     ObjectSetInteger(0, name, OBJPROP_FONTSIZE, LabelFontSize);
     ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
-    ObjectSetInteger(0, name, OBJPROP_ANCHOR, anchor);
+    ObjectSetInteger(0, name, OBJPROP_ANCHOR, ANCHOR_CENTER);
 }
 
+//+------------------------------------------------------------------+
+// FUNGSI DEINIT
+//+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
     ObjectsDeleteAll(0);
