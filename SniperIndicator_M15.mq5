@@ -1,20 +1,20 @@
 //+------------------------------------------------------------------+
-//| Sniper Indicator M15 - XAUUSD3 Custom Version (FIXED v1.02)      |
+//| Sniper Indicator M15 - XAUUSD3 Custom Version (FIXED v1.03)      |
 //| Target: 100-400 Point | Timeframe: M15                           |
 //| Pair: XAUUSD3 (Gold) | Strategy: High Accuracy Entry/Exit       |
 //+------------------------------------------------------------------+
 #property copyright "Ahmad Sniper Trading"
 #property link      "https://github.com/Ahmad112005"
-#property version   "1.02"
+#property version   "1.03"
 #property strict
 
 #property indicator_chart_window
-#property indicator_separate_window
 
+// CHART MAIN BUFFERS (4 buffers di chart window)
 #property indicator_buffers 12
-#property indicator_plots 12
+#property indicator_plots 8
 
-// ============ BUFFERS CHART UTAMA (Chart Window) ============
+// CHART PLOTS
 #property indicator_label1  "Buy Signal"
 #property indicator_type1   DRAW_ARROW
 #property indicator_color1  clrGreen
@@ -37,65 +37,45 @@
 #property indicator_width4  2
 #property indicator_style4  STYLE_DASH
 
-// ============ BUFFERS SUB-WINDOW (Separate Window) ============
+// SUB-WINDOW PLOTS (dipisah dengan indicator baru)
 #property indicator_label5  "RSI Line"
 #property indicator_type5   DRAW_LINE
 #property indicator_color5  clrCyan
 #property indicator_width5  2
 
-#property indicator_label6  "RSI Overbought"
-#property indicator_type6   DRAW_LINE
-#property indicator_color6  clrRed
-#property indicator_width6  1
-#property indicator_style6  STYLE_DOT
+#property indicator_label6  "MACD Histogram"
+#property indicator_type6   DRAW_HISTOGRAM
+#property indicator_color6  clrMagenta
+#property indicator_width6  2
 
-#property indicator_label7  "RSI Oversold"
-#property indicator_type7   DRAW_LINE
-#property indicator_color7  clrGreen
-#property indicator_width7  1
-#property indicator_style7  STYLE_DOT
+#property indicator_label7  "Volume Signal"
+#property indicator_type7   DRAW_HISTOGRAM
+#property indicator_color7  clrDodgerBlue
+#property indicator_width7  2
 
-#property indicator_label8  "MACD Histogram"
-#property indicator_type8   DRAW_HISTOGRAM
-#property indicator_color8  clrMagenta
-#property indicator_width8  2
+#property indicator_label8  "Zero Line"
+#property indicator_type8   DRAW_LINE
+#property indicator_color8  clrWhite
+#property indicator_width8  1
+#property indicator_style8  STYLE_SOLID
 
-#property indicator_label9  "MACD Line"
-#property indicator_type9   DRAW_LINE
-#property indicator_color9  clrYellow
-#property indicator_width9  1
-
-#property indicator_label10 "Volume Signal"
-#property indicator_type10  DRAW_HISTOGRAM
-#property indicator_color10 clrDodgerBlue
-#property indicator_width10 2
-
-#property indicator_label11 "Filter Status"
-#property indicator_type11  DRAW_LINE
-#property indicator_color11 clrLightGray
-#property indicator_width11 1
-
-#property indicator_label12 "Zero Line"
-#property indicator_type12  DRAW_LINE
-#property indicator_color12 clrWhite
-#property indicator_width12 1
-#property indicator_style12 STYLE_SOLID
-
-// ============ DEKLARASI BUFFERS ============
+// BUFFERS DEKLARASI
 double buyBuffer[];
 double sellBuffer[];
 double supportBuffer[];
 double resistanceBuffer[];
 double rsiBuffer[];
-double rsiOverboughtBuffer[];
-double rsiOversoldBuffer[];
 double macdBuffer[];
-double macdLineBuffer[];
 double volumeBuffer[];
-double filterBuffer[];
 double zeroLineBuffer[];
 
-// ============ PARAMETER INPUT ============
+// Buffers support (tidak di-plot)
+double rsiOverboughtBuffer[];
+double rsiOversoldBuffer[];
+double macdLineBuffer[];
+double filterBuffer[];
+
+// PARAMETER INPUT
 input int RSI_Period = 14;              // Periode RSI
 input int MACD_FastEMA = 12;            // MACD Fast EMA
 input int MACD_SlowEMA = 26;            // MACD Slow EMA
@@ -113,28 +93,29 @@ input int LabelFontSize = 10;           // Ukuran font label
 //+------------------------------------------------------------------+
 int OnInit()
 {
-    // ===== CHART BUFFERS =====
+    // CHART WINDOW BUFFERS (Plots 1-4)
     SetIndexBuffer(0, buyBuffer, INDICATOR_DATA);
     SetIndexBuffer(1, sellBuffer, INDICATOR_DATA);
     SetIndexBuffer(2, supportBuffer, INDICATOR_DATA);
     SetIndexBuffer(3, resistanceBuffer, INDICATOR_DATA);
     
-    // ===== SUB-WINDOW BUFFERS =====
+    // SUB-WINDOW BUFFERS (Plots 5-8)
     SetIndexBuffer(4, rsiBuffer, INDICATOR_DATA);
-    SetIndexBuffer(5, rsiOverboughtBuffer, INDICATOR_DATA);
-    SetIndexBuffer(6, rsiOversoldBuffer, INDICATOR_DATA);
-    SetIndexBuffer(7, macdBuffer, INDICATOR_DATA);
-    SetIndexBuffer(8, macdLineBuffer, INDICATOR_DATA);
-    SetIndexBuffer(9, volumeBuffer, INDICATOR_DATA);
-    SetIndexBuffer(10, filterBuffer, INDICATOR_DATA);
-    SetIndexBuffer(11, zeroLineBuffer, INDICATOR_DATA);
+    SetIndexBuffer(5, macdBuffer, INDICATOR_DATA);
+    SetIndexBuffer(6, volumeBuffer, INDICATOR_DATA);
+    SetIndexBuffer(7, zeroLineBuffer, INDICATOR_DATA);
+    
+    // SUPPORT BUFFERS (tidak di-plot, hanya untuk kalkulasi)
+    SetIndexBuffer(8, rsiOverboughtBuffer, INDICATOR_CALCULATIONS);
+    SetIndexBuffer(9, rsiOversoldBuffer, INDICATOR_CALCULATIONS);
+    SetIndexBuffer(10, macdLineBuffer, INDICATOR_CALCULATIONS);
+    SetIndexBuffer(11, filterBuffer, INDICATOR_CALCULATIONS);
     
     // Setup Arrow untuk Buy/Sell
     PlotIndexSetInteger(0, PLOT_ARROW, 241);  // Arrow up untuk BUY
     PlotIndexSetInteger(1, PLOT_ARROW, 242);  // Arrow down untuk SELL
     
     IndicatorSetString(INDICATOR_SHORTNAME, "Sniper M15 XAUUSD3");
-    IndicatorSetInteger(INDICATOR_HEIGHT, 200);
     
     return(INIT_SUCCEEDED);
 }
@@ -165,15 +146,15 @@ int OnCalculate(const int rates_total,
         
         // Reset sub-window buffers
         rsiBuffer[i] = EMPTY_VALUE;
-        rsiOverboughtBuffer[i] = EMPTY_VALUE;
-        rsiOversoldBuffer[i] = EMPTY_VALUE;
         macdBuffer[i] = EMPTY_VALUE;
-        macdLineBuffer[i] = EMPTY_VALUE;
         volumeBuffer[i] = EMPTY_VALUE;
-        filterBuffer[i] = EMPTY_VALUE;
         zeroLineBuffer[i] = EMPTY_VALUE;
         
-        if(i < 50) continue; // Butuh data history
+        if(i < 50) 
+        {
+            zeroLineBuffer[i] = 0;
+            continue; // Butuh data history
+        }
         
         // ===== HITUNG INDIKATOR =====
         double rsiVal = CalculateRSI(close, i, RSI_Period);
@@ -241,15 +222,14 @@ int OnCalculate(const int rates_total,
         
         // ===== SUB-WINDOW BUFFERS (RSI, MACD, VOLUME) =====
         rsiBuffer[i] = rsiVal;
+        macdBuffer[i] = macdVal;
+        volumeBuffer[i] = currentVol / volAvg * 50;  // Normalize untuk display
+        zeroLineBuffer[i] = 0;  // Zero line untuk MACD
+        
+        // Support buffers
         rsiOverboughtBuffer[i] = RSI_Overbought;
         rsiOversoldBuffer[i] = RSI_Oversold;
-        
-        macdBuffer[i] = macdVal;
         macdLineBuffer[i] = macdVal;
-        
-        volumeBuffer[i] = currentVol / volAvg * 50;  // Normalize untuk display
-        
-        zeroLineBuffer[i] = 0;  // Zero line untuk MACD
     }
     
     return(rates_total);
